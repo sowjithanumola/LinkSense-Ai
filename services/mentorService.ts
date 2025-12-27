@@ -38,30 +38,27 @@ export const summarizeUrl = async (
   type: SummaryType, 
   language: string
 ): Promise<SummaryResult> => {
-  // Always create a new instance to ensure we use the latest key
+  // Always create a new instance right before the call to ensure fresh configuration
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  // Refined prompt to avoid "same answer" hallucination
   const prompt = `
     You are Mentor AI, a high-precision web content analyst. 
     
-    CURRENT SESSION CONTEXT: This is a new, isolated request.
-    TARGET URL TO ANALYZE: ${url}
+    TASK: Analyze and summarize the content of this specific URL: ${url}
     TARGET LANGUAGE: ${language}
     SUMMARY DENSITY: ${type}
     
-    CRITICAL INSTRUCTION: 
-    - You MUST use the googleSearch tool to fetch the specific content of ${url}. 
-    - DO NOT use information from previous queries or unrelated URLs.
-    - If you cannot access the specific content of ${url}, explain why in the 'paragraph' field instead of hallucinating details about a different page.
-    - Your analysis MUST be strictly based on the content found at the provided URL.
+    INSTRUCTIONS:
+    - Use the googleSearch tool to fetch the specific content of ${url}. 
+    - Base your response ONLY on the search result for this URL.
+    - Provide a professional, mentor-like analysis.
     
     OUTPUT FORMAT: Provide a valid JSON object ONLY.
     {
-      "title": "Exact Page Title from ${url}",
-      "paragraph": "A deep-dive professional summary specific ONLY to ${url}.",
-      "bullets": ["Specific fact from the page 1", "Specific fact from the page 2", "Specific fact from the page 3"],
-      "insights": ["Strategic expert insight derived from this specific content"],
+      "title": "Exact Page Title",
+      "paragraph": "A flowing professional summary.",
+      "bullets": ["Key point 1", "Key point 2", "Key point 3"],
+      "insights": ["One strategic expert insight"],
       "readingTimeOriginal": number,
       "readingTimeSummary": number,
       "language": "${language}"
@@ -69,26 +66,26 @@ export const summarizeUrl = async (
   `;
 
   try {
-    // gemini-3-flash-preview is better for following strict grounding instructions
+    // 'gemini-flash-lite-latest' is often more available and quota-resilient for free tier users
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', 
+      model: 'gemini-flash-lite-latest', 
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        temperature: 0.1, // Lower temperature to reduce hallucination and repetition
+        temperature: 0, 
       },
     });
 
     const text = response.text;
     if (!text) {
-      throw new Error("AI returned an empty response. This might be due to site restrictions or safety filters.");
+      throw new Error("AI returned an empty response. The site may be blocking access or the search tool failed.");
     }
 
     const data = extractJson(text);
     
     return {
-      title: data.title || "Unique Content Analysis",
-      paragraph: data.paragraph || "Summary unavailable for this specific link.",
+      title: data.title || "Content Analysis",
+      paragraph: data.paragraph || "No summary was generated.",
       bullets: Array.isArray(data.bullets) ? data.bullets : [],
       insights: Array.isArray(data.insights) ? data.insights : [],
       readingTimeOriginal: data.readingTimeOriginal || 5,
@@ -100,12 +97,13 @@ export const summarizeUrl = async (
   } catch (error: any) {
     console.error("Mentor AI Summarization Error:", error);
     
+    // Explicitly handle 429 Rate Limit
     if (error?.message?.includes('429')) {
-      throw new Error("RATE_LIMIT: The current project quota is full. Use 'Switch API Project' to link a paid key for guaranteed performance.");
+      throw new Error("QUOTA_REACHED: You've hit the free usage limit. Please wait about 60 seconds and try again. For continuous high-speed usage, click 'Switch API Project' to link a project with a paid billing plan (ai.google.dev/gemini-api/docs/billing).");
     }
     
     if (error?.message?.includes('400')) {
-      throw new Error("AI_ERROR: The request structure was rejected. " + error.message);
+      throw new Error("AI_ERROR: The request was invalid or the content is restricted. " + error.message);
     }
     
     throw error;
