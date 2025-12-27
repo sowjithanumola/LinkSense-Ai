@@ -116,34 +116,3 @@ export const summarizeUrl = async (
     throw error;
   }
 };
-
-export const generateVideoTeaser = async (summary: string): Promise<string> => {
-  const hasKey = await (window as any).aistudio?.hasSelectedApiKey();
-  if (!hasKey) {
-    await (window as any).aistudio?.openSelectKey();
-  }
-
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  const videoPrompt = `A high quality cinematic conceptual video representing the following topic: ${summary.substring(0, 300)}`;
-  
-  let operation = await ai.models.generateVideos({
-    model: 'veo-3.1-fast-generate-preview',
-    prompt: videoPrompt,
-    config: {
-      numberOfVideos: 1,
-      resolution: '720p',
-      aspectRatio: '16:9'
-    }
-  });
-
-  while (!operation.done) {
-    await new Promise(resolve => setTimeout(resolve, 10000));
-    operation = await ai.operations.getVideosOperation({ operation: operation });
-  }
-
-  const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-  const res = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-  const blob = await res.blob();
-  return URL.createObjectURL(blob);
-};

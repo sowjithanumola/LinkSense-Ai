@@ -203,20 +203,13 @@ const App: React.FC = () => {
         )}
 
         {!state.isLoading && state.summaries.length === 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mt-24 opacity-60">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mt-24 opacity-60 max-w-2xl mx-auto">
              <div className="p-10 bg-white rounded-[2rem] border border-gray-100 text-center shadow-sm">
                <div className="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center mx-auto mb-6">
                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                </div>
                <h3 className="font-black text-gray-800 mb-2 uppercase text-xs tracking-widest">Parallel Processing</h3>
                <p className="text-sm text-gray-500 font-medium">Analyze clusters of sources simultaneously.</p>
-             </div>
-             <div className="p-10 bg-white rounded-[2rem] border border-gray-100 text-center shadow-sm">
-               <div className="w-12 h-12 bg-purple-50 text-purple-500 rounded-xl flex items-center justify-center mx-auto mb-6">
-                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-               </div>
-               <h3 className="font-black text-gray-800 mb-2 uppercase text-xs tracking-widest">Veo Visualizer</h3>
-               <p className="text-sm text-gray-500 font-medium">Cinematic video synthesis for complex topics.</p>
              </div>
              <div className="p-10 bg-white rounded-[2rem] border border-gray-100 text-center shadow-sm">
                <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-xl flex items-center justify-center mx-auto mb-6">

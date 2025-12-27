@@ -1,15 +1,12 @@
 
 import React, { useState } from 'react';
 import { SummaryResult } from '../types';
-import { generateVideoTeaser } from '../services/mentorService';
 
 interface SummaryCardProps {
   result: SummaryResult;
 }
 
 const SummaryCard: React.FC<SummaryCardProps> = ({ result }) => {
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
   // Safe defaults
@@ -58,19 +55,6 @@ Generated via LinkSense AI
     a.href = url;
     a.download = `linksense_${title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.txt`;
     a.click();
-  };
-
-  const handleGenerateVideo = async () => {
-    setIsGeneratingVideo(true);
-    try {
-      const url = await generateVideoTeaser(paragraph);
-      setVideoUrl(url);
-    } catch (err) {
-      console.error(err);
-      alert("Video generation failed. Ensure your API Key supports Veo models.");
-    } finally {
-      setIsGeneratingVideo(false);
-    }
   };
 
   const efficiency = result.readingTimeOriginal > 0 
@@ -167,12 +151,6 @@ Generated via LinkSense AI
         </div>
       )}
 
-      {videoUrl && (
-        <div className="mt-8 rounded-3xl overflow-hidden border-8 border-white shadow-2xl bg-black">
-          <video src={videoUrl} controls className="w-full aspect-video" />
-        </div>
-      )}
-
       <div className="flex flex-wrap gap-4 mt-12 pt-8 border-t border-gray-50">
         <button 
           onClick={handleCopy}
@@ -189,13 +167,6 @@ Generated via LinkSense AI
           className="flex-1 min-w-[160px] flex items-center justify-center gap-3 py-4 px-6 bg-white text-gray-700 rounded-2xl hover:bg-gray-50 transition-all text-sm font-black border-2 border-gray-100"
         >
           Download
-        </button>
-        <button 
-          onClick={handleGenerateVideo}
-          disabled={isGeneratingVideo}
-          className="flex-[1.5] min-w-[200px] flex items-center justify-center gap-3 py-4 px-8 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-all text-sm font-black disabled:opacity-50 shadow-xl shadow-indigo-200"
-        >
-          {isGeneratingVideo ? "Processing Video..." : "Generate Video Teaser"}
         </button>
       </div>
     </div>
