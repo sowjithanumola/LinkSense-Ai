@@ -29,7 +29,7 @@ const extractJson = (text: string) => {
         console.error("Failed to parse substring JSON", e3);
       }
     }
-    throw new Error("The AI provided a response that couldn't be parsed. This can happen if the content is restricted or too complex.");
+    throw new Error("The AI provided a response that couldn't be parsed. Please try again with a different URL.");
   }
 };
 
@@ -38,28 +38,30 @@ export const summarizeUrl = async (
   type: SummaryType, 
   language: string
 ): Promise<SummaryResult> => {
-  // Always create a new instance to ensure we use the latest key from environment or dialog
+  // Always create a new instance to ensure we use the latest key
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
+  // Refined prompt to avoid "same answer" hallucination
   const prompt = `
-    You are Mentor AI, an elite intelligent web content analyst.
+    You are Mentor AI, a high-precision web content analyst. 
     
-    TASK: Deeply analyze and summarize the content of this URL: ${url}
+    CURRENT SESSION CONTEXT: This is a new, isolated request.
+    TARGET URL TO ANALYZE: ${url}
     TARGET LANGUAGE: ${language}
-    SUMMARY STYLE: ${type}
+    SUMMARY DENSITY: ${type}
     
-    INSTRUCTIONS:
-    1. Use your search tool to fetch the actual content of the provided URL.
-    2. Extract the core arguments, facts, and nuances.
-    3. Synthesize the information into a professional, mentor-like summary.
-    4. Provide the result in a valid JSON object.
+    CRITICAL INSTRUCTION: 
+    - You MUST use the googleSearch tool to fetch the specific content of ${url}. 
+    - DO NOT use information from previous queries or unrelated URLs.
+    - If you cannot access the specific content of ${url}, explain why in the 'paragraph' field instead of hallucinating details about a different page.
+    - Your analysis MUST be strictly based on the content found at the provided URL.
     
-    JSON STRUCTURE:
+    OUTPUT FORMAT: Provide a valid JSON object ONLY.
     {
-      "title": "Clear Descriptive Page Title",
-      "paragraph": "A flowing, professional summary (approx 3-5 sentences).",
-      "bullets": ["Key takeaway 1", "Key takeaway 2", "Key takeaway 3"],
-      "insights": ["Strategic insight or hidden fact 1", "Expert observation 2"],
+      "title": "Exact Page Title from ${url}",
+      "paragraph": "A deep-dive professional summary specific ONLY to ${url}.",
+      "bullets": ["Specific fact from the page 1", "Specific fact from the page 2", "Specific fact from the page 3"],
+      "insights": ["Strategic expert insight derived from this specific content"],
       "readingTimeOriginal": number,
       "readingTimeSummary": number,
       "language": "${language}"
@@ -67,26 +69,26 @@ export const summarizeUrl = async (
   `;
 
   try {
-    // Using gemini-flash-lite-latest for better availability on free tiers
+    // gemini-3-flash-preview is better for following strict grounding instructions
     const response = await ai.models.generateContent({
-      model: 'gemini-flash-lite-latest', 
+      model: 'gemini-3-flash-preview', 
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        // responseMimeType is NOT supported when tools are used
+        temperature: 0.1, // Lower temperature to reduce hallucination and repetition
       },
     });
 
     const text = response.text;
     if (!text) {
-      throw new Error("AI returned an empty response. This might be due to content filtering.");
+      throw new Error("AI returned an empty response. This might be due to site restrictions or safety filters.");
     }
 
     const data = extractJson(text);
     
     return {
-      title: data.title || "Wisdom Extraction",
-      paragraph: data.paragraph || "Summary unavailable.",
+      title: data.title || "Unique Content Analysis",
+      paragraph: data.paragraph || "Summary unavailable for this specific link.",
       bullets: Array.isArray(data.bullets) ? data.bullets : [],
       insights: Array.isArray(data.insights) ? data.insights : [],
       readingTimeOriginal: data.readingTimeOriginal || 5,
@@ -98,19 +100,12 @@ export const summarizeUrl = async (
   } catch (error: any) {
     console.error("Mentor AI Summarization Error:", error);
     
-    // Check for quota exceeded (429)
     if (error?.message?.includes('429')) {
-      throw new Error("RATE_LIMIT: The AI is currently at maximum capacity for the current project. Please use 'Switch API Project' to connect a project with billing enabled for unlimited access.");
+      throw new Error("RATE_LIMIT: The current project quota is full. Use 'Switch API Project' to link a paid key for guaranteed performance.");
     }
     
-    // Check for invalid arguments (400)
     if (error?.message?.includes('400')) {
-      throw new Error("AI_ERROR: There was an issue with the request parameters. " + error.message);
-    }
-    
-    // Check for 404
-    if (error?.message?.includes('404')) {
-      throw new Error("MODEL_ERROR: The selected AI model is not available for this API key. Use 'Switch API Project' to select a different one.");
+      throw new Error("AI_ERROR: The request structure was rejected. " + error.message);
     }
     
     throw error;
