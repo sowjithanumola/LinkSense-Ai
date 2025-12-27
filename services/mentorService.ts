@@ -55,7 +55,7 @@ export const summarizeUrl = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', // Pro for complex reasoning and tool usage
+      model: 'gemini-3-flash-preview', // Switched from Pro to Flash for better quota availability
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -93,8 +93,12 @@ export const summarizeUrl = async (
       url,
       sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => chunk) || []
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Mentor AI Summarization Error:", error);
+    // Handle Quota Error specifically
+    if (error?.message?.includes('429')) {
+      throw new Error("The AI service is currently at its capacity limit. Please wait a minute and try again.");
+    }
     throw error;
   }
 };
