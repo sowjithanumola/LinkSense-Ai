@@ -56,7 +56,7 @@ export const summarizeUrl = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', // Switched to stable Gemini 3 Flash model
+      model: 'gemini-flash-lite-latest', // Switched to Flash Lite for maximum availability and reliability
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -99,10 +99,10 @@ export const summarizeUrl = async (
     
     // Detailed error handling for quota and availability
     if (error?.message?.includes('429')) {
-      throw new Error("QUOTA_EXCEEDED: Your API project is at its limit. Please try switching to a paid project or wait a moment.");
+      throw new Error("QUOTA_EXCEEDED: LinkSense AI is very popular! The current project quota is full. Please click 'Switch API Project' to use your own paid key (billing enabled) for unlimited access.");
     }
     if (error?.message?.includes('404') || error?.message?.includes('not found')) {
-      throw new Error("MODEL_AVAILABILITY: The requested AI model is not accessible. This usually happens if the API key project is restricted. Please use the 'Switch API Project' button.");
+      throw new Error("MODEL_AVAILABILITY: The model series is restricted. Please click 'Switch API Project' and ensure you select a project with billing enabled.");
     }
     
     throw error;
