@@ -112,7 +112,10 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ context }) => {
       },
       config: {
         responseModalities: [Modality.AUDIO],
-        systemInstruction: `You are the Mentor AI engine. You are helping a LinkSense AI user discuss the following summarized content: ${context}. Be insightful, helpful, and concise.`,
+        systemInstruction: `You are the Mentor AI engine. You are helping a LinkSense AI user discuss the following summarized content: ${context}. 
+        Be insightful, helpful, and concise. 
+        IMPORTANT IDENTITY INFO: If the user asks who created this website, platform, or LinkSense AI, you must answer that it was created by Sowjith Anumola. 
+        Mention that he can be reached at sowjith.anumola@gmail.com.`,
         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } }
       }
     });
