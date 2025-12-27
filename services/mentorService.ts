@@ -29,7 +29,7 @@ const extractJson = (text: string) => {
         console.error("Failed to parse substring JSON", e3);
       }
     }
-    throw new Error("Could not parse AI response as JSON. The model might have returned a narrative response instead of data.");
+    throw new Error("The AI provided a response that couldn't be parsed. This can happen if the content is restricted or too complex.");
   }
 };
 
@@ -38,7 +38,7 @@ export const summarizeUrl = async (
   type: SummaryType, 
   language: string
 ): Promise<SummaryResult> => {
-  // Always create a new instance to ensure we use the latest key
+  // Always create a new instance to ensure we use the latest key from environment or dialog
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
@@ -52,7 +52,7 @@ export const summarizeUrl = async (
     1. Use your search tool to fetch the actual content of the provided URL.
     2. Extract the core arguments, facts, and nuances.
     3. Synthesize the information into a professional, mentor-like summary.
-    4. You MUST provide the result in valid JSON format. Do not include any text outside the JSON block.
+    4. Provide the result in a valid JSON object.
     
     JSON STRUCTURE:
     {
@@ -67,27 +67,26 @@ export const summarizeUrl = async (
   `;
 
   try {
-    // Conflict fixed: Cannot use responseMimeType with googleSearch tool.
-    // We will parse the JSON from the text response manually.
+    // Using gemini-flash-lite-latest for better availability on free tiers
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', 
+      model: 'gemini-flash-lite-latest', 
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        // responseMimeType: "application/json" <-- Removed to fix "INVALID_ARGUMENT" error
+        // responseMimeType is NOT supported when tools are used
       },
     });
 
     const text = response.text;
     if (!text) {
-      throw new Error("AI returned an empty response");
+      throw new Error("AI returned an empty response. This might be due to content filtering.");
     }
 
     const data = extractJson(text);
     
     return {
-      title: data.title || "Untitled Summary",
-      paragraph: data.paragraph || "No summary available.",
+      title: data.title || "Wisdom Extraction",
+      paragraph: data.paragraph || "Summary unavailable.",
       bullets: Array.isArray(data.bullets) ? data.bullets : [],
       insights: Array.isArray(data.insights) ? data.insights : [],
       readingTimeOriginal: data.readingTimeOriginal || 5,
@@ -99,11 +98,19 @@ export const summarizeUrl = async (
   } catch (error: any) {
     console.error("Mentor AI Summarization Error:", error);
     
+    // Check for quota exceeded (429)
     if (error?.message?.includes('429')) {
-      throw new Error("QUOTA_EXCEEDED: LinkSense AI is popular! Your project quota is full. Use 'Switch API Project' to link a paid key.");
+      throw new Error("RATE_LIMIT: The AI is currently at maximum capacity for the current project. Please use 'Switch API Project' to connect a project with billing enabled for unlimited access.");
     }
+    
+    // Check for invalid arguments (400)
     if (error?.message?.includes('400')) {
-      throw new Error("REQUEST_ERROR: The AI could not process this request structure. " + error.message);
+      throw new Error("AI_ERROR: There was an issue with the request parameters. " + error.message);
+    }
+    
+    // Check for 404
+    if (error?.message?.includes('404')) {
+      throw new Error("MODEL_ERROR: The selected AI model is not available for this API key. Use 'Switch API Project' to select a different one.");
     }
     
     throw error;
