@@ -19,7 +19,17 @@ const extractJson = (text: string) => {
         console.error("Failed to parse extracted JSON block", e2);
       }
     }
-    throw new Error("Could not parse AI response as JSON");
+    // Try finding any JSON-like structure
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start !== -1 && end !== -1 && end > start) {
+      try {
+        return JSON.parse(text.substring(start, end + 1));
+      } catch (e3) {
+        console.error("Failed to parse substring JSON", e3);
+      }
+    }
+    throw new Error("Could not parse AI response as JSON. The model might have returned a narrative response instead of data.");
   }
 };
 
@@ -28,7 +38,7 @@ export const summarizeUrl = async (
   type: SummaryType, 
   language: string
 ): Promise<SummaryResult> => {
-  // Always create a new instance to ensure we use the latest key from the selection dialog
+  // Always create a new instance to ensure we use the latest key
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
@@ -42,7 +52,9 @@ export const summarizeUrl = async (
     1. Use your search tool to fetch the actual content of the provided URL.
     2. Extract the core arguments, facts, and nuances.
     3. Synthesize the information into a professional, mentor-like summary.
-    4. You MUST provide the result in the following JSON structure:
+    4. You MUST provide the result in valid JSON format. Do not include any text outside the JSON block.
+    
+    JSON STRUCTURE:
     {
       "title": "Clear Descriptive Page Title",
       "paragraph": "A flowing, professional summary (approx 3-5 sentences).",
@@ -55,33 +67,23 @@ export const summarizeUrl = async (
   `;
 
   try {
+    // Conflict fixed: Cannot use responseMimeType with googleSearch tool.
+    // We will parse the JSON from the text response manually.
     const response = await ai.models.generateContent({
-      model: 'gemini-flash-lite-latest', // Switched to Flash Lite for maximum availability and reliability
+      model: 'gemini-3-flash-preview', 
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            paragraph: { type: Type.STRING },
-            bullets: { type: Type.ARRAY, items: { type: Type.STRING } },
-            insights: { type: Type.ARRAY, items: { type: Type.STRING } },
-            readingTimeOriginal: { type: Type.NUMBER },
-            readingTimeSummary: { type: Type.NUMBER },
-            language: { type: Type.STRING }
-          },
-          required: ["title", "paragraph", "bullets", "insights", "readingTimeOriginal", "readingTimeSummary", "language"]
-        }
+        // responseMimeType: "application/json" <-- Removed to fix "INVALID_ARGUMENT" error
       },
     });
 
-    if (!response.text) {
+    const text = response.text;
+    if (!text) {
       throw new Error("AI returned an empty response");
     }
 
-    const data = extractJson(response.text);
+    const data = extractJson(text);
     
     return {
       title: data.title || "Untitled Summary",
@@ -97,12 +99,11 @@ export const summarizeUrl = async (
   } catch (error: any) {
     console.error("Mentor AI Summarization Error:", error);
     
-    // Detailed error handling for quota and availability
     if (error?.message?.includes('429')) {
-      throw new Error("QUOTA_EXCEEDED: LinkSense AI is very popular! The current project quota is full. Please click 'Switch API Project' to use your own paid key (billing enabled) for unlimited access.");
+      throw new Error("QUOTA_EXCEEDED: LinkSense AI is popular! Your project quota is full. Use 'Switch API Project' to link a paid key.");
     }
-    if (error?.message?.includes('404') || error?.message?.includes('not found')) {
-      throw new Error("MODEL_AVAILABILITY: The model series is restricted. Please click 'Switch API Project' and ensure you select a project with billing enabled.");
+    if (error?.message?.includes('400')) {
+      throw new Error("REQUEST_ERROR: The AI could not process this request structure. " + error.message);
     }
     
     throw error;
