@@ -28,6 +28,7 @@ export const summarizeUrl = async (
   type: SummaryType, 
   language: string
 ): Promise<SummaryResult> => {
+  // Always create a new instance to ensure we use the latest key from the selection dialog
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
@@ -55,7 +56,7 @@ export const summarizeUrl = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', // Switched from Pro to Flash for better quota availability
+      model: 'gemini-2.5-flash-preview', // Switched to 2.5 series for better quota/reliability
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -95,10 +96,15 @@ export const summarizeUrl = async (
     };
   } catch (error: any) {
     console.error("Mentor AI Summarization Error:", error);
-    // Handle Quota Error specifically
+    
+    // Detailed error handling for quota and availability
     if (error?.message?.includes('429')) {
-      throw new Error("The AI service is currently at its capacity limit. Please wait a minute and try again.");
+      throw new Error("QUOTA_EXCEEDED: Your API project is at its limit. Please try switching to a paid project or wait a moment.");
     }
+    if (error?.message?.includes('Requested entity was not found')) {
+      throw new Error("MODEL_NOT_FOUND: This model series is not available for your current key. Please select a different API project.");
+    }
+    
     throw error;
   }
 };

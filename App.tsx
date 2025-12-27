@@ -15,11 +15,13 @@ const App: React.FC = () => {
     selectedSummaryType: SummaryType.SHORT,
     selectedLanguage: 'English'
   });
+  const [errorStatus, setErrorStatus] = useState<string | null>(null);
 
   const handleUrlChange = (index: number, value: string) => {
     const newUrls = [...state.urls];
     newUrls[index] = value;
     setState(prev => ({ ...prev, urls: newUrls }));
+    if (errorStatus) setErrorStatus(null);
   };
 
   const addUrlField = () => {
@@ -31,16 +33,25 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, urls: newUrls.length ? newUrls : [''] }));
   };
 
+  const handleSwitchKey = async () => {
+    try {
+      await (window as any).aistudio?.openSelectKey();
+      setErrorStatus(null);
+    } catch (e) {
+      console.error("Failed to open key selector", e);
+    }
+  };
+
   const processSummaries = async () => {
     const validUrls = state.urls.filter(u => u.trim() !== '');
     if (validUrls.length === 0) return;
 
     setState(prev => ({ ...prev, isLoading: true, summaries: [] }));
+    setErrorStatus(null);
 
     try {
       const results: SummaryResult[] = [];
       for (const url of validUrls) {
-        // Ensure URL has a protocol
         const fullUrl = url.startsWith('http') ? url : `https://${url}`;
         const result = await summarizeUrl(fullUrl, state.selectedSummaryType, state.selectedLanguage);
         results.push(result);
@@ -48,8 +59,7 @@ const App: React.FC = () => {
       setState(prev => ({ ...prev, summaries: results, isLoading: false }));
     } catch (err: any) {
       console.error("LinkSense AI Application Error:", err);
-      const errorMessage = err?.message || "Something went wrong while summarizing.";
-      alert(`${errorMessage}\n\nPlease check your URLs and try again.`);
+      setErrorStatus(err.message || "An unexpected error occurred.");
       setState(prev => ({ ...prev, isLoading: false }));
     }
   };
@@ -78,11 +88,28 @@ const App: React.FC = () => {
             <p className="text-lg text-gray-600 leading-relaxed mb-4">
               LinkSense AI is an AI-powered web platform that allows users to paste any public URL and instantly receive a clear, concise summary of the content. 
             </p>
-            <p className="text-md text-gray-500 leading-relaxed">
-              The system uses <span className="font-semibold text-indigo-600">Mentor AI</span> as its intelligent engine to extract, analyze, and understand information from news, blogs, and documentation.
-            </p>
           </div>
         </div>
+
+        {errorStatus && (
+          <div className="mb-10 p-6 bg-red-50 border border-red-100 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex gap-4">
+              <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center text-red-600 flex-shrink-0">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+              </div>
+              <div>
+                <h4 className="font-black text-red-900 mb-1 uppercase text-xs tracking-widest">Access Restriction</h4>
+                <p className="text-red-700 text-sm leading-relaxed">{errorStatus}</p>
+              </div>
+            </div>
+            <button 
+              onClick={handleSwitchKey}
+              className="px-6 py-3 bg-red-600 text-white text-sm font-black rounded-xl hover:bg-red-700 transition shadow-lg shadow-red-200 whitespace-nowrap"
+            >
+              Switch API Project
+            </button>
+          </div>
+        )}
 
         <section className="bg-white rounded-[2rem] p-8 md:p-10 shadow-2xl shadow-indigo-100/40 border border-indigo-50/50 mb-12">
           <div className="space-y-5 mb-8">
