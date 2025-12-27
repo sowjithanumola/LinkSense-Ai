@@ -82,13 +82,12 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* URL Inputs Area */}
-        <section className="bg-white rounded-[2rem] p-8 md:p-10 shadow-2xl shadow-indigo-100/40 border border-indigo-50/50 mb-12 transform transition-all">
+        <section className="bg-white rounded-[2rem] p-8 md:p-10 shadow-2xl shadow-indigo-100/40 border border-indigo-50/50 mb-12">
           <div className="space-y-5 mb-8">
             {state.urls.map((url, index) => (
-              <div key={index} className="flex gap-2 group animate-in fade-in slide-in-from-left-2">
+              <div key={index} className="flex gap-2 group">
                 <div className="relative flex-1">
-                  <div className="absolute left-5 top-1/2 -translate-y-1/2 text-indigo-300 group-focus-within:text-indigo-500 transition-colors">
+                  <div className="absolute left-5 top-1/2 -translate-y-1/2 text-indigo-300">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.826L7.04 11.39m5.657 5.657l.707-.707m-1.414-1.414l.707-.707M10.172 13.828a4 4 0 015.656 0l4 4a4 4 0 01-5.656 5.656l-1.102-1.102"></path></svg>
                   </div>
                   <input
@@ -96,12 +95,12 @@ const App: React.FC = () => {
                     placeholder="Paste a URL here..."
                     value={url}
                     onChange={(e) => handleUrlChange(index, e.target.value)}
-                    className="w-full pl-14 pr-12 py-5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-400 outline-none transition-all text-gray-700 font-medium placeholder:text-gray-300"
+                    className="w-full pl-14 pr-12 py-5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-400 outline-none transition-all text-gray-700 font-medium"
                   />
                   {state.urls.length > 1 && (
                     <button 
                       onClick={() => removeUrlField(index)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-all"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-red-500 p-2"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
@@ -113,9 +112,7 @@ const App: React.FC = () => {
               onClick={addUrlField}
               className="text-indigo-600 font-bold text-sm flex items-center gap-2 hover:text-indigo-700 transition-all pl-2 px-3 py-2 rounded-lg hover:bg-indigo-50 w-fit"
             >
-              <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-              </div>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
               Add another link
             </button>
           </div>
@@ -126,7 +123,7 @@ const App: React.FC = () => {
               <select 
                 value={state.selectedSummaryType}
                 onChange={(e) => setState(prev => ({ ...prev, selectedSummaryType: e.target.value as SummaryType }))}
-                className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none appearance-none cursor-pointer hover:bg-gray-100 transition-all font-semibold text-gray-700"
+                className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none font-semibold text-gray-700"
               >
                 {Object.values(SummaryType).map(type => (
                   <option key={type} value={type}>{type}</option>
@@ -138,7 +135,7 @@ const App: React.FC = () => {
               <select 
                 value={state.selectedLanguage}
                 onChange={(e) => setState(prev => ({ ...prev, selectedLanguage: e.target.value }))}
-                className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none appearance-none cursor-pointer hover:bg-gray-100 transition-all font-semibold text-gray-700"
+                className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none font-semibold text-gray-700"
               >
                 {LANGUAGES.map(lang => (
                   <option key={lang} value={lang}>{lang}</option>
@@ -157,64 +154,36 @@ const App: React.FC = () => {
                 <svg className="animate-spin h-6 w-6 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 Mentor AI is thinking...
               </>
-            ) : (
-              <>
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                Extract Wisdom
-              </>
-            )}
+            ) : "Extract Wisdom"}
           </button>
         </section>
 
-        {/* Results Section */}
         {state.summaries.length > 0 && (
-          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+          <div className="space-y-10">
             {state.summaries.map((res, i) => (
               <SummaryCard key={i} result={res} />
             ))}
-            
             <VoiceAssistant context={JSON.stringify(state.summaries)} />
           </div>
         )}
 
-        {/* Empty State */}
         {!state.isLoading && state.summaries.length === 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-24">
-             <div className="p-8 bg-white/50 rounded-3xl border border-dashed border-gray-200 text-center hover:border-indigo-300 transition-colors group">
-               <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 font-bold text-2xl group-hover:scale-110 transition-transform">1</div>
+             <div className="p-8 bg-white rounded-3xl border border-gray-100 text-center">
                <h3 className="font-bold text-gray-800 mb-3 text-lg">Batch Processing</h3>
-               <p className="text-sm text-gray-500 leading-relaxed">Save hours by summarizing multiple articles or research papers simultaneously.</p>
+               <p className="text-sm text-gray-500">Summarize multiple links simultaneously.</p>
              </div>
-             <div className="p-8 bg-white/50 rounded-3xl border border-dashed border-gray-200 text-center hover:border-purple-300 transition-colors group">
-               <div className="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 font-bold text-2xl group-hover:scale-110 transition-transform">2</div>
+             <div className="p-8 bg-white rounded-3xl border border-gray-100 text-center">
                <h3 className="font-bold text-gray-800 mb-3 text-lg">Visual Summaries</h3>
-               <p className="text-sm text-gray-500 leading-relaxed">Instantly convert textual insights into cinematic video teasers using Mentor AI.</p>
+               <p className="text-sm text-gray-500">Convert insights into video teasers.</p>
              </div>
-             <div className="p-8 bg-white/50 rounded-3xl border border-dashed border-gray-200 text-center hover:border-indigo-300 transition-colors group">
-               <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 font-bold text-2xl group-hover:scale-110 transition-transform">3</div>
-               <h3 className="font-bold text-gray-800 mb-3 text-lg">Active Dialogue</h3>
-               <p className="text-sm text-gray-500 leading-relaxed">Don't just read summaries—discuss them using our integrated voice engine.</p>
+             <div className="p-8 bg-white rounded-3xl border border-gray-100 text-center">
+               <h3 className="font-bold text-gray-800 mb-3 text-lg">Voice Dialogue</h3>
+               <p className="text-sm text-gray-500">Discuss results with Mentor AI voice engine.</p>
              </div>
           </div>
         )}
       </main>
-
-      {/* Footer Branding */}
-      <footer className="mt-32 pb-16 text-center border-t border-gray-100 pt-16">
-        <p className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">LinkSense AI Platform</p>
-        <p className="text-xs text-gray-400">© 2025 LinkSense AI. All rights reserved. Intellectual Engine by Mentor AI.</p>
-      </footer>
-
-      {/* Mobile Sticky CTA */}
-      <footer className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-xl md:hidden border-t border-gray-200 z-[60]">
-         <button 
-           onClick={processSummaries}
-           disabled={state.isLoading}
-           className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-xl active:scale-95 transition-all"
-         >
-           {state.isLoading ? "Extracting..." : "Summarize Now"}
-         </button>
-      </footer>
     </div>
   );
 };

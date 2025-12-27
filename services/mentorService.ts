@@ -2,14 +2,12 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { SummaryType, SummaryResult } from "../types";
 
-const API_KEY = process.env.API_KEY || "";
-
 export const summarizeUrl = async (
   url: string, 
   type: SummaryType, 
   language: string
 ): Promise<SummaryResult> => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
     You are Mentor AI, an elite intelligent web content analyst and summarizer.
@@ -65,13 +63,12 @@ export const summarizeUrl = async (
 };
 
 export const generateVideoTeaser = async (summary: string): Promise<string> => {
-  // Check for Video engine key selection
   const hasKey = await (window as any).aistudio?.hasSelectedApiKey();
   if (!hasKey) {
     await (window as any).aistudio?.openSelectKey();
   }
 
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const videoPrompt = `A high quality cinematic conceptual video representing the following topic summarized by Mentor AI: ${summary.substring(0, 300)}`;
   
@@ -91,7 +88,7 @@ export const generateVideoTeaser = async (summary: string): Promise<string> => {
   }
 
   const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-  const res = await fetch(`${downloadLink}&key=${API_KEY}`);
+  const res = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
   const blob = await res.blob();
   return URL.createObjectURL(blob);
 };
