@@ -1,0 +1,7 @@
+{
+  "name": "LinkSense AI - Powered by Mentor AI",
+  "description": "LinkSense AI is an AI-powered web platform that allows users to paste any public URL and instantly receive a clear, concise summary of the content. The system uses Mentor AI as its intelligent engine to extract, analyze, and understand information.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
