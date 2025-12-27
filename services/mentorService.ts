@@ -56,7 +56,7 @@ export const summarizeUrl = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview', // Switched to 2.5 series for better quota/reliability
+      model: 'gemini-3-flash-preview', // Switched to stable Gemini 3 Flash model
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -101,8 +101,8 @@ export const summarizeUrl = async (
     if (error?.message?.includes('429')) {
       throw new Error("QUOTA_EXCEEDED: Your API project is at its limit. Please try switching to a paid project or wait a moment.");
     }
-    if (error?.message?.includes('Requested entity was not found')) {
-      throw new Error("MODEL_NOT_FOUND: This model series is not available for your current key. Please select a different API project.");
+    if (error?.message?.includes('404') || error?.message?.includes('not found')) {
+      throw new Error("MODEL_AVAILABILITY: The requested AI model is not accessible. This usually happens if the API key project is restricted. Please use the 'Switch API Project' button.");
     }
     
     throw error;
