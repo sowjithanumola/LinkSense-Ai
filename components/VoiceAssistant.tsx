@@ -15,10 +15,20 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ context }) => {
   const nextStartTimeRef = useRef(0);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
 
+  const encode = (bytes: Uint8Array) => {
+    let binary = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  };
+
   const decode = (base64: string) => {
     const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
     return bytes;
@@ -30,9 +40,11 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ context }) => {
     sampleRate: number,
     numChannels: number,
   ): Promise<AudioBuffer> => {
-    const dataInt16 = new Int16Array(data.buffer);
+    // Correctly handle the Uint8Array buffer view for raw PCM 16-bit data
+    const dataInt16 = new Int16Array(data.buffer, data.byteOffset, data.byteLength / 2);
     const frameCount = dataInt16.length / numChannels;
     const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
     for (let channel = 0; channel < numChannels; channel++) {
       const channelData = buffer.getChannelData(channel);
       for (let i = 0; i < frameCount; i++) {
@@ -43,95 +55,119 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ context }) => {
   };
 
   const createBlob = (data: Float32Array) => {
-    const int16 = new Int16Array(data.length);
-    for (let i = 0; i < data.length; i++) {
+    const l = data.length;
+    const int16 = new Int16Array(l);
+    for (let i = 0; i < l; i++) {
       int16[i] = data[i] * 32768;
     }
-    let binary = '';
-    const bytes = new Uint8Array(int16.buffer);
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
     return {
-      data: btoa(binary),
+      data: encode(new Uint8Array(int16.buffer)),
       mimeType: 'audio/pcm;rate=16000',
     };
   };
 
   const startSession = async () => {
-    setIsConnecting(true);
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-    outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+    try {
+      setIsConnecting(true);
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      
+      const inCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+      const outCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      
+      // CRITICAL: Explicitly resume contexts to handle browser autoplay/audio-lock policies
+      await inCtx.resume();
+      await outCtx.resume();
+      
+      audioContextRef.current = inCtx;
+      outputAudioContextRef.current = outCtx;
 
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    
-    const sessionPromise = ai.live.connect({
-      model: 'gemini-2.5-flash-native-audio-preview-09-2025',
-      callbacks: {
-        onopen: () => {
-          setIsConnecting(false);
-          setIsActive(true);
-          const source = audioContextRef.current!.createMediaStreamSource(stream);
-          const scriptProcessor = audioContextRef.current!.createScriptProcessor(4096, 1, 1);
-          scriptProcessor.onaudioprocess = (e) => {
-            const inputData = e.inputBuffer.getChannelData(0);
-            const pcmBlob = createBlob(inputData);
-            sessionPromise.then((session) => {
-              session.sendRealtimeInput({ media: pcmBlob });
-            });
-          };
-          source.connect(scriptProcessor);
-          scriptProcessor.connect(audioContextRef.current!.destination);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      const sessionPromise = ai.live.connect({
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+        callbacks: {
+          onopen: () => {
+            setIsConnecting(false);
+            setIsActive(true);
+            const source = inCtx.createMediaStreamSource(stream);
+            const scriptProcessor = inCtx.createScriptProcessor(4096, 1, 1);
+            
+            scriptProcessor.onaudioprocess = (e) => {
+              const inputData = e.inputBuffer.getChannelData(0);
+              const pcmBlob = createBlob(inputData);
+              // Ensure data is sent only after connection promise resolves
+              sessionPromise.then((session) => {
+                session.sendRealtimeInput({ media: pcmBlob });
+              });
+            };
+            
+            source.connect(scriptProcessor);
+            scriptProcessor.connect(inCtx.destination);
+          },
+          onmessage: async (message: LiveServerMessage) => {
+            const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+            if (base64Audio && outCtx) {
+              nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outCtx.currentTime);
+              const audioBuffer = await decodeAudioData(decode(base64Audio), outCtx, 24000, 1);
+              const source = outCtx.createBufferSource();
+              source.buffer = audioBuffer;
+              source.connect(outCtx.destination);
+              source.start(nextStartTimeRef.current);
+              nextStartTimeRef.current += audioBuffer.duration;
+              sourcesRef.current.add(source);
+              source.onended = () => sourcesRef.current.delete(source);
+            }
+            if (message.serverContent?.interrupted) {
+              sourcesRef.current.forEach(s => {
+                try { s.stop(); } catch(e) {}
+              });
+              sourcesRef.current.clear();
+              nextStartTimeRef.current = 0;
+            }
+          },
+          onerror: (e) => {
+            console.error('Mentor AI Voice Error', e);
+            stopSession();
+          },
+          onclose: () => {
+            setIsActive(false);
+            setIsConnecting(false);
+          },
         },
-        onmessage: async (message: LiveServerMessage) => {
-          const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-          if (base64Audio && outputAudioContextRef.current) {
-            nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outputAudioContextRef.current.currentTime);
-            const audioBuffer = await decodeAudioData(decode(base64Audio), outputAudioContextRef.current, 24000, 1);
-            const source = outputAudioContextRef.current.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(outputAudioContextRef.current.destination);
-            source.start(nextStartTimeRef.current);
-            nextStartTimeRef.current += audioBuffer.duration;
-            sourcesRef.current.add(source);
-            source.onended = () => sourcesRef.current.delete(source);
-          }
-          if (message.serverContent?.interrupted) {
-            sourcesRef.current.forEach(s => s.stop());
-            sourcesRef.current.clear();
-            nextStartTimeRef.current = 0;
-          }
-        },
-        onerror: (e) => console.error('Live Error', e),
-        onclose: () => {
-          setIsActive(false);
-          setIsConnecting(false);
-        },
-      },
-      config: {
-        responseModalities: [Modality.AUDIO],
-        systemInstruction: `You are the Mentor AI engine. You are helping a LinkSense AI user discuss the following summarized content: ${context}. 
-        Be insightful, helpful, and concise. 
-        IDENTITY RULES:
-        1. If the user asks "who are you", reply: "I am LinkSense AI connected to Mentor AI."
-        2. If the user asks "who created you", "who made this", "who is the creator", or similar, you MUST say that you are Mentor AI and that the website was created by Sowjith Anumola.
-        3. Specifically, for creator questions, say: "I am Mentor AI. LinkSense AI and this platform were created by Sowjith Anumola. You can reach him by email at sowjith.anumola@gmail.com."
-        4. Be warm and professional.`,
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } }
-      }
-    });
+        config: {
+          responseModalities: [Modality.AUDIO],
+          systemInstruction: `You are the Mentor AI engine. You are helping a LinkSense AI user discuss the following summarized content: ${context}. 
+          Be insightful, helpful, and concise. 
+          IDENTITY RULES:
+          1. If the user asks "who are you", reply: "I am LinkSense AI connected to Mentor AI."
+          2. If the user asks "who created you", "who made this", "who is the creator", or similar, you MUST say that you are Mentor AI and that the website was created by Sowjith Anumola.
+          3. Specifically, for creator questions, say: "I am Mentor AI. LinkSense AI and this platform were created by Sowjith Anumola. You can reach him by email at sowjith.anumola@gmail.com."
+          4. Be warm and professional.`,
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } }
+        }
+      });
 
-    sessionRef.current = await sessionPromise;
+      sessionRef.current = await sessionPromise;
+    } catch (err) {
+      console.error("Microphone access or initialization failed:", err);
+      setIsConnecting(false);
+      setIsActive(false);
+    }
   };
 
   const stopSession = () => {
     if (sessionRef.current) {
-      sessionRef.current.close();
+      try { sessionRef.current.close(); } catch(e) {}
       sessionRef.current = null;
     }
+    if (audioContextRef.current) {
+      try { audioContextRef.current.close(); } catch(e) {}
+    }
+    if (outputAudioContextRef.current) {
+      try { outputAudioContextRef.current.close(); } catch(e) {}
+    }
     setIsActive(false);
+    setIsConnecting(false);
   };
 
   return (
@@ -152,7 +188,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ context }) => {
           {isConnecting ? (
             <>
               <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              Initializing...
+              Initializing Mic...
             </>
           ) : (
             <>
