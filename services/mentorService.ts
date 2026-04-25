@@ -35,62 +35,30 @@ export const summarizeUrl = async (
   type: SummaryType, 
   language: string
 ): Promise<SummaryResult> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  
-  const prompt = `
-    You are Mentor AI, a high-precision web content analyst. 
-    
-    TASK: Analyze and summarize the content of this specific URL: ${url}
-    TARGET LANGUAGE: ${language}
-    SUMMARY DENSITY: ${type}
-    
-    INSTRUCTIONS:
-    - Base your response ONLY on the provided content.
-    - Provide a professional, mentor-like analysis.
-    
-    OUTPUT FORMAT: Provide a valid JSON object ONLY.
-    {
-      "title": "Exact Page Title",
-      "paragraph": "A flowing professional summary.",
-      "bullets": ["Key point 1", "Key point 2", "Key point 3"],
-      "insights": ["One strategic expert insight"],
-      "readingTimeOriginal": number,
-      "readingTimeSummary": number,
-      "language": "${language}"
-    }
-  `;
+  const response = await fetch("/api/summarize", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ url, type, language }),
+  });
 
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash', 
-      contents: prompt,
-      config: {
-        temperature: 0, 
-      },
-    });
-
-    const text = response.text;
-    if (!text) {
-      throw new Error("AI returned an empty response.");
-    }
-
-    const data = extractJson(text);
-    
-    return {
-      title: data.title || "Content Analysis",
-      paragraph: data.paragraph || "No summary was generated.",
-      bullets: Array.isArray(data.bullets) ? data.bullets : [],
-      insights: Array.isArray(data.insights) ? data.insights : [],
-      readingTimeOriginal: data.readingTimeOriginal || 5,
-      readingTimeSummary: data.readingTimeSummary || 1,
-      language: data.language || language,
-      url,
-      sources: []
-    };
-  } catch (error: any) {
-    if (error?.message?.includes('429')) {
-      throw new Error("QUOTA_REACHED: You've hit the free usage limit of your current API Project. Click 'Switch API Project' to select a project with a paid billing plan.");
-    }
-    throw error;
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Failed to summarize content.");
   }
+
+  const data = await response.json();
+  
+  return {
+    title: data.title || "Content Analysis",
+    paragraph: data.paragraph || "No summary was generated.",
+    bullets: Array.isArray(data.bullets) ? data.bullets : [],
+    insights: Array.isArray(data.insights) ? data.insights : [],
+    readingTimeOriginal: data.readingTimeOriginal || 5,
+    readingTimeSummary: data.readingTimeSummary || 1,
+    language: data.language || language,
+    url,
+    sources: []
+  };
 };
