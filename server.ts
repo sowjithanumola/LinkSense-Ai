@@ -27,10 +27,13 @@ async function startServer() {
 
   // API route
   app.post("/api/summarize", async (req, res) => {
+    console.log("Received request to /api/summarize");
     const { url, type, language } = req.body;
+    console.log("Body:", { url, type, language });
     
     try {
       const ai = getAiClient();
+      console.log("AI client initialized");
       
       const prompt = `
         You are Mentor AI, a high-precision web content analyst. 

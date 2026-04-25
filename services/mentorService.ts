@@ -44,8 +44,16 @@ export const summarizeUrl = async (
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || "Failed to summarize content.");
+    const text = await response.text();
+    let errorMessage = "Failed to summarize content.";
+    try {
+        const errorData = JSON.parse(text);
+        errorMessage = errorData.error || errorMessage;
+    } catch {
+        // Not JSON, assume it is an error page
+        console.error("Non-JSON error response:", text);
+    }
+    throw new Error(errorMessage);
   }
 
   const data = await response.json();
