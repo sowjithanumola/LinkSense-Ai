@@ -1,20 +1,23 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
-import { GoogleGenAI } from "@google/genai";
+import { OpenAI } from "openai";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-let aiClient: GoogleGenAI | null = null;
+let aiClient: OpenAI | null = null;
 
-function getAiClient(): GoogleGenAI {
+function getAiClient(): OpenAI {
   if (!aiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.HF_TOKEN;
     if (!apiKey) {
-      throw new Error("GEMINI_API_KEY environment variable is required");
+      throw new Error("HF_TOKEN environment variable is required");
     }
-    aiClient = new GoogleGenAI({ apiKey });
+    aiClient = new OpenAI({
+      baseURL: "https://router.huggingface.co/v1",
+      apiKey: apiKey,
+    });
   }
   return aiClient;
 }
@@ -29,43 +32,41 @@ async function startServer() {
   app.post("/api/summarize", async (req, res) => {
     console.log("Received request to /api/summarize");
     const { url, type, language } = req.body;
-    console.log("Body:", { url, type, language });
     
     try {
-      const ai = getAiClient();
-      console.log("AI client initialized");
+      const client = getAiClient();
       
-      const prompt = `
-        You are Mentor AI, a high-precision web content analyst. 
-        
-        TASK: Analyze and summarize the content of this specific URL: ${url}
-        TARGET LANGUAGE: ${language}
-        SUMMARY DENSITY: ${type}
-        
-        INSTRUCTIONS:
-        - Provide a professional, mentor-like analysis.
-        
-        OUTPUT FORMAT: Provide a valid JSON object ONLY.
-        {
-          "title": "Exact Page Title",
-          "paragraph": "A flowing professional summary.",
-          "bullets": ["Key point 1", "Key point 2", "Key point 3"],
-          "insights": ["One strategic expert insight"],
-          "readingTimeOriginal": 5,
-          "readingTimeSummary": 1,
-          "language": "${language}"
-        }
-      `;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash', 
-        contents: prompt,
-        config: {
-          temperature: 0, 
-        },
+      const completion = await client.chat.completions.create({
+        model: "google/gemma-2-27b-it", 
+        messages: [
+            {
+                role: "user",
+                content: `
+                    You are Mentor AI, a high-precision web content analyst. 
+                    
+                    TASK: Analyze and summarize the content of this specific URL: ${url}
+                    TARGET LANGUAGE: ${language}
+                    SUMMARY DENSITY: ${type}
+                    
+                    INSTRUCTIONS:
+                    - Provide a professional, mentor-like analysis.
+                    
+                    OUTPUT FORMAT: Provide a valid JSON object ONLY.
+                    {
+                      "title": "Exact Page Title",
+                      "paragraph": "A flowing professional summary.",
+                      "bullets": ["Key point 1", "Key point 2", "Key point 3"],
+                      "insights": ["One strategic expert insight"],
+                      "readingTimeOriginal": 5,
+                      "readingTimeSummary": 1,
+                      "language": "${language}"
+                    }
+                  `
+            }
+        ],
       });
 
-      const text = response.text;
+      const text = completion.choices[0].message.content;
       if (!text) {
         throw new Error("AI returned an empty response.");
       }
@@ -78,7 +79,7 @@ async function startServer() {
       res.json(data);
         
     } catch (error: any) {
-        console.error("Gemini API Error:", error);
+        console.error("AI Error:", error);
         res.status(500).json({ error: error.message || "Failed to summarize content." });
     }
   });
